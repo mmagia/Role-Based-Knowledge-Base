@@ -1,3 +1,6 @@
+import os
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 from sqlalchemy import Column, Boolean, DateTime, ForeignKey, String
 from sqlalchemy.orm import declarative_base
@@ -20,3 +23,6 @@ class Post(Base):
     writer_nickname = Column(String, ForeignKey("writer.nickname"), nullable=False)
     post_text = Column(String, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+engine = create_async_engine(os.getenv("DATABASE_URL"), future=True, echo=True)
+async_session = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)

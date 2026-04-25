@@ -1,18 +1,14 @@
-import os
 from alembic.config import Config
 from alembic import command
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRouter
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.orm import sessionmaker
 from DAL import *
 from typing import List
 from models import *
-
-engine = create_async_engine(os.getenv("DATABASE_URL"), future=True, echo=True)
-
-async_session = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+from fastapi.security import OAuth2PasswordRequestForm
+from auth import create_access_token, get_current_writer, Hasher
+from database import async_session
 
 app = FastAPI(title="app")
 
@@ -34,25 +30,25 @@ async def startup():
 
 writers_router = APIRouter()
 posts_router = APIRouter()
+auth_router = APIRouter()
 
-# WRITER ENDPOINTS
+# WRITER ENDPOINTS ============================================================================================
 @writers_router.post("/", response_model=ShowWriter)
 async def create_writer(body: CreateWriter) -> ShowWriter:
     async with async_session() as session:
         async with session.begin():
             writer_dal = WriterDAL(session)
-            
             # Check if writer already exists
             exists = await writer_dal.check_writer_exists(body.nickname)
             if exists:
                 raise HTTPException(status_code=400, detail="Writer already exists")
-            
             writer = await writer_dal.create_writer(body)
             return ShowWriter(
                 nickname=writer.nickname,
                 hashed_password=writer.hashed_password,
                 is_confirmed=writer.is_confirmed
             )
+   
 
 
 @writers_router.patch("/confirm/{nickname}", response_model=ShowWriter)
@@ -104,7 +100,7 @@ async def get_all_writers(skip: int = 0, limit: int = 100) -> List[ShowWriter]:
                 ) for w in writers
             ]
 
-# POST ENDPOINTS
+# POST ENDPOINTS ===================================================================================
 @posts_router.post("/", response_model=ShowPost)
 async def create_post(body: CreatePost) -> ShowPost:
     async with async_session() as session:
@@ -278,8 +274,54 @@ async def search_posts(search_term: str):
                     created_at=p.created_at
                 ) for p in posts
             ]
+        
+# auth endpoints ==========================================================================================
+@auth_router.post("/login", response_model=LoginResponse)
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    async with async_session() as session:
+        async with session.begin():
+            writer_dal = WriterDAL(session)
+            writer = await writer_dal.get_writer_by_nickname(form_data.username)
+            
+            if not writer:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Incorrect nickname or password"
+                )
+            
+            if not Hasher.verify_password(form_data.password, writer.hashed_password):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Incorrect nickname or password"
+                )
+            
+            # Create access token
+            access_token = create_access_token(data={"sub": writer.nickname})
+            
+            return LoginResponse(
+                access_token=access_token,
+                token_type="bearer",
+                writer=ShowWriter(
+                    nickname=writer.nickname,
+                    hashed_password=writer.hashed_password,
+                    is_confirmed=writer.is_confirmed
+                )
+            )
+
+@auth_router.get("/me", response_model=ShowWriter)
+async def get_current_writer_info(
+    current_writer: Writer = Depends(get_current_writer)
+):
+    """Get current writer info from token"""
+    return ShowWriter(
+            nickname=current_writer.nickname,
+            hashed_password=current_writer.hashed_password,
+            is_confirmed=current_writer.is_confirmed
+        )
+
 # create the instance for the routes
 main_api_router = APIRouter()
 main_api_router.include_router(writers_router, prefix="/writer", tags=["writer"])
 main_api_router.include_router(posts_router, prefix="/post", tags=["post"])
+main_api_router.include_router(auth_router, prefix="/auth", tags=["authentication"])
 app.include_router(main_api_router)

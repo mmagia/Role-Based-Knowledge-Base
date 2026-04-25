@@ -5,21 +5,23 @@ from datetime import datetime, timedelta
 import uuid
 from database import Writer, Post
 from models import CreateWriter, CreatePost
-
+from hasher import Hasher
 
 class WriterDAL:
     def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
 
     async def create_writer(self, writer_data: CreateWriter) -> Writer:
+        hashed = Hasher.get_password_hash(writer_data.password)
         new_writer = Writer(
             nickname=writer_data.nickname,
-            hashed_password=writer_data.hashed_password,  # hash at the endpoint level
+            hashed_password=hashed,  # hash at the endpoint level
             is_confirmed=False
         )
         self.db_session.add(new_writer)
         await self.db_session.flush()
         return new_writer
+        
     
     async def confirm_writer_by_nickname(self, nickname: str) -> Writer | None:
         query = select(Writer).where(Writer.nickname == nickname)

@@ -10,8 +10,9 @@ class PostFields(BaseModel):
     writer_nickname: str
     post_text: str
 
-class CreateWriter(WriterFields): 
-    pass
+class CreateWriter(BaseModel):
+    nickname: str
+    password: str
 
 class ShowWriter(WriterFields):
     is_confirmed: bool
@@ -27,3 +28,7 @@ class ShowPost(PostFields):
     class Config:
         from_attributes = True
 
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str
+    writer: ShowWriter
