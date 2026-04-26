@@ -2,6 +2,7 @@ import uuid
 from pydantic import BaseModel
 from datetime import datetime
 
+# the file contains pydantic models that are used as request bodies
 class WriterFields(BaseModel):
     nickname: str
     hashed_password: str

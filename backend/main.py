@@ -38,7 +38,6 @@ async def create_writer(body: CreateWriter) -> ShowWriter:
     async with async_session() as session:
         async with session.begin():
             writer_dal = WriterDAL(session)
-            # Check if writer already exists
             exists = await writer_dal.check_writer_exists(body.nickname)
             if exists:
                 raise HTTPException(status_code=400, detail="Writer already exists")
@@ -105,7 +104,6 @@ async def get_all_writers(skip: int = 0, limit: int = 100) -> List[ShowWriter]:
 async def create_post(body: CreatePost) -> ShowPost:
     async with async_session() as session:
         async with session.begin():
-            # Check if writer exists
             writer_dal = WriterDAL(session)
             writer = await writer_dal.get_writer_by_nickname(body.writer_nickname)
             if not writer:
@@ -180,10 +178,8 @@ async def delete_post(post_id: uuid.UUID):
         async with session.begin():
             post_dal = PostDAL(session)
             deleted = await post_dal.delete_post(post_id)
-            
             if not deleted:
                 raise HTTPException(status_code=404, detail="Post not found")
-            
             return {"message": "Post deleted successfully"}
 
 
@@ -193,7 +189,6 @@ async def get_recent_posts(hours: int) -> List[ShowPost]:
         async with session.begin():
             post_dal = PostDAL(session)
             posts = await post_dal.get_recent_posts(hours)
-            
             return [
                 ShowPost(
                     post_id=p.post_id,
@@ -275,7 +270,7 @@ async def search_posts(search_term: str):
                 ) for p in posts
             ]
         
-# auth endpoints ==========================================================================================
+# AUTHORIZATION ENDPOINTS ==========================================================================================
 @auth_router.post("/login", response_model=LoginResponse)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     async with async_session() as session:
@@ -294,10 +289,8 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Incorrect nickname or password"
                 )
-            
-            # Create access token
+
             access_token = create_access_token(data={"sub": writer.nickname})
-            
             return LoginResponse(
                 access_token=access_token,
                 token_type="bearer",
@@ -309,10 +302,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
             )
 
 @auth_router.get("/me", response_model=ShowWriter)
-async def get_current_writer_info(
-    current_writer: Writer = Depends(get_current_writer)
-):
-    """Get current writer info from token"""
+async def get_current_writer_info(current_writer: Writer = Depends(get_current_writer)):
     return ShowWriter(
             nickname=current_writer.nickname,
             hashed_password=current_writer.hashed_password,

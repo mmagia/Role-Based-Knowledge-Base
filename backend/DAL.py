@@ -15,7 +15,7 @@ class WriterDAL:
         hashed = Hasher.get_password_hash(writer_data.password)
         new_writer = Writer(
             nickname=writer_data.nickname,
-            hashed_password=hashed,  # hash at the endpoint level
+            hashed_password=hashed,
             is_confirmed=False
         )
         self.db_session.add(new_writer)
@@ -142,13 +142,11 @@ class PostDAL:
     
     async def get_posts_with_pagination(self, page: int, page_size: int) -> dict:
         offset = (page - 1) * page_size
-        
-        # total count
+    
         count_query = select(func.count()).select_from(Post)
         count_result = await self.db_session.execute(count_query)
         total_count = count_result.scalar()
-        
-        # paginated
+
         query = (
             select(Post)
             .offset(offset)

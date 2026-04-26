@@ -26,7 +26,6 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 async def get_current_writer(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> Writer:
-    """Get current writer from bearer token"""
     token = credentials.credentials
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -37,7 +36,7 @@ async def get_current_writer(
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         nickname: str = payload.get("sub")
-        if nickname is None:
+        if not nickname:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
@@ -46,14 +45,13 @@ async def get_current_writer(
         async with session.begin():
             writer_dal = WriterDAL(session)
             writer = await writer_dal.get_writer_by_nickname(nickname)
-            if writer is None:
+            if not writer:
                 raise credentials_exception
             return writer
 
 async def get_current_confirmed_writer(
     current_writer: Writer = Depends(get_current_writer)
 ) -> Writer:
-    """Get current writer and ensure they are confirmed"""
     if not current_writer.is_confirmed:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
