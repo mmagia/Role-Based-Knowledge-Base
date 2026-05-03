@@ -7,7 +7,8 @@ from DAL import *
 from typing import List
 from models import *
 from fastapi.security import OAuth2PasswordRequestForm
-from auth import create_access_token, get_current_writer, Hasher
+from auth import create_access_token, get_current_writer
+from hasher import Hasher
 from database import async_session
 
 app = FastAPI(title="app")
@@ -20,17 +21,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 async def run_migrations():
     alembic_cfg = Config("alembic.ini")
     command.upgrade(alembic_cfg, "head")
+
 
 @app.on_event("startup")
 async def startup():
     await run_migrations()
 
+
 writers_router = APIRouter()
 posts_router = APIRouter()
 auth_router = APIRouter()
+
 
 # WRITER ENDPOINTS ============================================================================================
 @writers_router.post("/", response_model=ShowWriter)
@@ -47,7 +52,6 @@ async def create_writer(body: CreateWriter) -> ShowWriter:
                 hashed_password=writer.hashed_password,
                 is_confirmed=writer.is_confirmed
             )
-   
 
 
 @writers_router.patch("/confirm/{nickname}", response_model=ShowWriter)
@@ -56,10 +60,10 @@ async def confirm_writer(nickname: str) -> ShowWriter:
         async with session.begin():
             writer_dal = WriterDAL(session)
             writer = await writer_dal.confirm_writer_by_nickname(nickname)
-            
+
             if not writer:
                 raise HTTPException(status_code=404, detail="Writer not found")
-            
+
             return ShowWriter(
                 nickname=writer.nickname,
                 hashed_password=writer.hashed_password,
@@ -73,10 +77,10 @@ async def get_writer(nickname: str) -> ShowWriter:
         async with session.begin():
             writer_dal = WriterDAL(session)
             writer = await writer_dal.get_writer_by_nickname(nickname)
-            
+
             if not writer:
                 raise HTTPException(status_code=404, detail="Writer not found")
-            
+
             return ShowWriter(
                 nickname=writer.nickname,
                 hashed_password=writer.hashed_password,
@@ -90,7 +94,7 @@ async def get_all_writers(skip: int = 0, limit: int = 100) -> List[ShowWriter]:
         async with session.begin():
             writer_dal = WriterDAL(session)
             writers = await writer_dal.get_all_writers(skip, limit)
-            
+
             return [
                 ShowWriter(
                     nickname=w.nickname,
@@ -98,6 +102,7 @@ async def get_all_writers(skip: int = 0, limit: int = 100) -> List[ShowWriter]:
                     is_confirmed=w.is_confirmed
                 ) for w in writers
             ]
+
 
 # POST ENDPOINTS ===================================================================================
 @posts_router.post("/", response_model=ShowPost)
@@ -108,10 +113,13 @@ async def create_post(body: CreatePost) -> ShowPost:
             writer = await writer_dal.get_writer_by_nickname(body.writer_nickname)
             if not writer:
                 raise HTTPException(status_code=404, detail="Writer not found")
-            
+            if not writer.is_confirmed:
+                raise HTTPException(status_code=401,
+                                    detail="Your account is currently under review. Posting privileges will be enabled once an administrator approves your profile")
+
             post_dal = PostDAL(session)
             post = await post_dal.create_post(body)
-            
+
             return ShowPost(
                 post_id=post.post_id,
                 writer_nickname=post.writer_nickname,
@@ -126,7 +134,7 @@ async def get_posts_by_writer(writer_nickname: str) -> List[ShowPost]:
         async with session.begin():
             post_dal = PostDAL(session)
             posts = await post_dal.get_posts_by_writer_nickname(writer_nickname)
-            
+
             return [
                 ShowPost(
                     post_id=p.post_id,
@@ -143,7 +151,7 @@ async def get_all_posts(offset: int = 0, limit: int = 100) -> List[ShowPost]:
         async with session.begin():
             post_dal = PostDAL(session)
             posts = await post_dal.get_all_posts(offset, limit)
-            
+
             return [
                 ShowPost(
                     post_id=p.post_id,
@@ -160,10 +168,10 @@ async def get_post_by_id(post_id: uuid.UUID) -> ShowPost:
         async with session.begin():
             post_dal = PostDAL(session)
             post = await post_dal.get_post_by_id(post_id)
-            
+
             if not post:
                 raise HTTPException(status_code=404, detail="Post not found")
-            
+
             return ShowPost(
                 post_id=post.post_id,
                 writer_nickname=post.writer_nickname,
@@ -205,7 +213,7 @@ async def get_posts_by_date_range(start_date: datetime, end_date: datetime) -> L
         async with session.begin():
             post_dal = PostDAL(session)
             posts = await post_dal.get_posts_by_date_range(start_date, end_date)
-            
+
             return [
                 ShowPost(
                     post_id=p.post_id,
@@ -240,7 +248,7 @@ async def get_posts_with_pagination(page: int = 1, page_size: int = 10):
         async with session.begin():
             post_dal = PostDAL(session)
             result = await post_dal.get_posts_with_pagination(page, page_size)
-            
+
             # Convert posts to ShowPost format
             result["posts"] = [
                 ShowPost(
@@ -250,7 +258,7 @@ async def get_posts_with_pagination(page: int = 1, page_size: int = 10):
                     created_at=p.created_at
                 ) for p in result["posts"]
             ]
-            
+
             return result
 
 
@@ -260,7 +268,7 @@ async def search_posts(search_term: str):
         async with session.begin():
             post_dal = PostDAL(session)
             posts = await post_dal.search_posts(search_term)
-            
+
             return [
                 ShowPost(
                     post_id=p.post_id,
@@ -269,7 +277,8 @@ async def search_posts(search_term: str):
                     created_at=p.created_at
                 ) for p in posts
             ]
-        
+
+
 # AUTHORIZATION ENDPOINTS ==========================================================================================
 @auth_router.post("/login", response_model=LoginResponse)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -277,13 +286,13 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         async with session.begin():
             writer_dal = WriterDAL(session)
             writer = await writer_dal.get_writer_by_nickname(form_data.username)
-            
+
             if not writer:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Incorrect nickname or password"
                 )
-            
+
             if not Hasher.verify_password(form_data.password, writer.hashed_password):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -301,13 +310,15 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
                 )
             )
 
+
 @auth_router.get("/me", response_model=ShowWriter)
 async def get_current_writer_info(current_writer: Writer = Depends(get_current_writer)):
     return ShowWriter(
-            nickname=current_writer.nickname,
-            hashed_password=current_writer.hashed_password,
-            is_confirmed=current_writer.is_confirmed
-        )
+        nickname=current_writer.nickname,
+        hashed_password=current_writer.hashed_password,
+        is_confirmed=current_writer.is_confirmed
+    )
+
 
 # create the instance for the routes
 main_api_router = APIRouter()

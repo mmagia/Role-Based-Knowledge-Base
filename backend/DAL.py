@@ -31,7 +31,6 @@ class WriterDAL:
         if writer:
             writer.is_confirmed = True
             await self.db_session.commit()
-            await self.db_session.refresh(writer)
             return writer
         
         return None
