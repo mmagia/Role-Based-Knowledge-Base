@@ -32,6 +32,20 @@ services:
       - "8000:8000"
     restart: unless-stopped
 
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: /api
+        VITE_ADMIN_LOGIN: ${VITE_ADMIN_LOGIN:-admin}
+        VITE_ADMIN_PASSWORD: ${VITE_ADMIN_PASSWORD:-admin123}
+    container_name: frontend
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+    restart: unless-stopped
+
 volumes:
   postgres_data:
     name: postgres_data
