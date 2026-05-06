@@ -332,6 +332,16 @@ function App() {
   async function handleDeletePost(postId: string) {
     setFeedError("");
 
+    const postToDelete =
+      posts.find((post) => post.post_id === postId) ??
+      adminPosts.find((post) => post.post_id === postId) ??
+      selectedPost;
+
+    if (postToDelete && !canDeletePost(postToDelete)) {
+      setFeedError("You can delete only your own posts.");
+      return;
+    }
+
     try {
       await deletePost(postId);
       setPosts((currentPosts) => currentPosts.filter((post) => post.post_id !== postId));
@@ -389,6 +399,7 @@ function App() {
   }
 
   const canCreatePost = Boolean(writer?.is_confirmed);
+  const canDeletePost = (post: Post) => isAdmin || post.writer_nickname === writer?.nickname;
   const workspaceTitle = isAdmin ? "Admin" : writer?.nickname;
 
   return (
@@ -562,9 +573,11 @@ function App() {
                                 <button type="button" onClick={() => void handleOpenPost(post.post_id)}>
                                   Open
                                 </button>
-                                <button type="button" onClick={() => void handleDeletePost(post.post_id)}>
-                                  Delete
-                                </button>
+                                {canDeletePost(post) ? (
+                                  <button type="button" onClick={() => void handleDeletePost(post.post_id)}>
+                                    Delete
+                                  </button>
+                                ) : null}
                               </div>
                             </div>
                           </article>
@@ -843,13 +856,15 @@ function App() {
               <span>{formatDate(selectedPost.created_at)}</span>
               <div className="inline-actions">
                 <span>{selectedPost.post_id.slice(0, 8)}</span>
-                <button
-                  className="secondary-button compact danger"
-                  type="button"
-                  onClick={() => void handleDeletePost(selectedPost.post_id)}
-                >
-                  Delete
-                </button>
+                {canDeletePost(selectedPost) ? (
+                  <button
+                    className="secondary-button compact danger"
+                    type="button"
+                    onClick={() => void handleDeletePost(selectedPost.post_id)}
+                  >
+                    Delete
+                  </button>
+                ) : null}
               </div>
             </div>
           </article>
