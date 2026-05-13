@@ -209,6 +209,8 @@ async def get_recent_posts(hours: int) -> List[ShowPost]:
 
 @posts_router.get("/date-range/", response_model=List[ShowPost])
 async def get_posts_by_date_range(start_date: datetime, end_date: datetime) -> List[ShowPost]:
+    start_date = start_date.replace(tzinfo=None)
+    end_date = end_date.replace(tzinfo=None)
     async with async_session() as session:
         async with session.begin():
             post_dal = PostDAL(session)

@@ -1,0 +1,79 @@
+name: CI
+
+on: push
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          pip install -r tests/requirements.txt
+      - name: Run backend tests
+        run: pytest tests/backend -v
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: testdb
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/testdb
+      SECRET_KEY: test-secret-key
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install backend deps
+        run: pip install -r requirements.txt
+        working-directory: backend
+      - name: Run migrations
+        run: alembic upgrade head
+        working-directory: backend
+      - name: Start backend
+        run: |
+          uvicorn main:app --host 127.0.0.1 --port 8000 &
+          sleep 4
+          curl --retry 5 --retry-delay 2 --retry-connrefused http://127.0.0.1:8000/docs
+        working-directory: backend
+      - name: Install frontend deps
+        run: npm ci
+        working-directory: frontend
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+      - name: Start frontend
+        run: |
+          npx vite preview --port 5173 --host 127.0.0.1 &
+          sleep 3
+        working-directory: frontend
+      - name: Install playwright deps + browsers
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+        working-directory: tests
+      - name: Run E2E tests
+        run: npx playwright test
+        working-directory: tests
