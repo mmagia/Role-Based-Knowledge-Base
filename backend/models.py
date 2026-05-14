@@ -2,7 +2,6 @@ import uuid
 from pydantic import BaseModel
 from datetime import datetime
 
-# the file contains pydantic models that are used as request bodies
 class WriterFields(BaseModel):
     nickname: str
     hashed_password: str
@@ -15,10 +14,11 @@ class CreateWriter(BaseModel):
     nickname: str
     password: str
 
+from pydantic import ConfigDict
+
 class ShowWriter(WriterFields):
     is_confirmed: bool
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CreatePost(PostFields):
     pass
@@ -26,8 +26,7 @@ class CreatePost(PostFields):
 class ShowPost(PostFields):
     post_id: uuid.UUID
     created_at: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class LoginResponse(BaseModel):
     access_token: str

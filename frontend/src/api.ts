@@ -58,7 +58,7 @@ async function request<T>(input: RequestInfo | URL, init?: RequestInit) {
     return await parseResponse<T>(await fetch(input, init));
   } catch (error) {
     if (error instanceof TypeError) {
-      throw new Error("Backend недоступен. Проверьте, что FastAPI запущен на localhost:8000.");
+      throw new Error("Backend is not available. Make sure the API server is running on port 8000.");
     }
 
     throw error;
