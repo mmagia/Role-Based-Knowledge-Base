@@ -1,7 +1,7 @@
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Sequence
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import uuid
 from database import Writer, Post
 from models import CreateWriter, CreatePost
@@ -59,7 +59,7 @@ class PostDAL:
         post = Post(
             writer_nickname=post_model.writer_nickname,
             post_text=post_model.post_text,
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc).replace(tzinfo=None)
         )
         self.db_session.add(post)
         await self.db_session.flush()
@@ -103,7 +103,7 @@ class PostDAL:
     
 
     async def get_recent_posts(self, hours: int) -> Sequence[Post]:
-        since_time = datetime.utcnow() - timedelta(hours=hours)
+        since_time = (datetime.now(timezone.utc) - timedelta(hours=hours)).replace(tzinfo=None)
         query = (
             select(Post)
             .where(Post.created_at >= since_time)
@@ -163,7 +163,6 @@ class PostDAL:
             "total_pages": (total_count + page_size - 1) // page_size
         }
     
-    # very primitive
     async def search_posts(self, search_term: str) -> Sequence[Post]:
         query = (
             select(Post)

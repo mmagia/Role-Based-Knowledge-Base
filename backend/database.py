@@ -1,7 +1,7 @@
 import os
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Boolean, DateTime, ForeignKey, String
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.dialects.postgresql import UUID
@@ -22,7 +22,7 @@ class Post(Base):
     post_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     writer_nickname = Column(String, ForeignKey("writer.nickname"), nullable=False)
     post_text = Column(String, nullable=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
-engine = create_async_engine(os.getenv("DATABASE_URL"), future=True, echo=True)
+engine = create_async_engine(os.getenv("DATABASE_URL"), echo=False)
 async_session = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)

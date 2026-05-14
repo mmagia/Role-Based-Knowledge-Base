@@ -10,8 +10,11 @@ from fastapi.security import OAuth2PasswordRequestForm
 from auth import create_access_token, get_current_writer
 from hasher import Hasher
 from database import async_session
+from prometheus_fastapi_instrumentator import Instrumentator
+from datetime import datetime
 
 app = FastAPI(title="app")
+instrumentator = Instrumentator().instrument(app)
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,7 +40,6 @@ posts_router = APIRouter()
 auth_router = APIRouter()
 
 
-# WRITER ENDPOINTS ============================================================================================
 @writers_router.post("/", response_model=ShowWriter)
 async def create_writer(body: CreateWriter) -> ShowWriter:
     async with async_session() as session:
@@ -104,7 +106,6 @@ async def get_all_writers(skip: int = 0, limit: int = 100) -> List[ShowWriter]:
             ]
 
 
-# POST ENDPOINTS ===================================================================================
 @posts_router.post("/", response_model=ShowPost)
 async def create_post(body: CreatePost) -> ShowPost:
     async with async_session() as session:
@@ -251,7 +252,6 @@ async def get_posts_with_pagination(page: int = 1, page_size: int = 10):
             post_dal = PostDAL(session)
             result = await post_dal.get_posts_with_pagination(page, page_size)
 
-            # Convert posts to ShowPost format
             result["posts"] = [
                 ShowPost(
                     post_id=p.post_id,
@@ -281,7 +281,6 @@ async def search_posts(search_term: str):
             ]
 
 
-# AUTHORIZATION ENDPOINTS ==========================================================================================
 @auth_router.post("/login", response_model=LoginResponse)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     async with async_session() as session:
@@ -322,9 +321,9 @@ async def get_current_writer_info(current_writer: Writer = Depends(get_current_w
     )
 
 
-# create the instance for the routes
 main_api_router = APIRouter()
 main_api_router.include_router(writers_router, prefix="/writer", tags=["writer"])
 main_api_router.include_router(posts_router, prefix="/post", tags=["post"])
 main_api_router.include_router(auth_router, prefix="/auth", tags=["authentication"])
 app.include_router(main_api_router)
+instrumentator.expose(app)
