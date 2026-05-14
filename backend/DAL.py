@@ -59,7 +59,7 @@ class PostDAL:
         post = Post(
             writer_nickname=post_model.writer_nickname,
             post_text=post_model.post_text,
-            created_at=datetime.now(timezone.utc)
+            created_at=datetime.now(timezone.utc).replace(tzinfo=None)
         )
         self.db_session.add(post)
         await self.db_session.flush()
@@ -103,7 +103,7 @@ class PostDAL:
     
 
     async def get_recent_posts(self, hours: int) -> Sequence[Post]:
-        since_time = datetime.now(timezone.utc) - timedelta(hours=hours)
+        since_time = (datetime.now(timezone.utc) - timedelta(hours=hours)).replace(tzinfo=None)
         query = (
             select(Post)
             .where(Post.created_at >= since_time)
