@@ -33,7 +33,7 @@ const ADMIN_LOGIN = import.meta.env.VITE_ADMIN_LOGIN ?? "admin";
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD ?? "admin123";
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("ru-RU", {
+  return new Intl.DateTimeFormat("en-EN", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
