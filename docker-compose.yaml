@@ -36,9 +36,9 @@ services:
     build:
       context: ./frontend
       args:
-        VITE_API_BASE_URL: /api
-        VITE_ADMIN_LOGIN: ${VITE_ADMIN_LOGIN:-admin}
-        VITE_ADMIN_PASSWORD: ${VITE_ADMIN_PASSWORD:-admin123}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+        VITE_ADMIN_LOGIN: ${VITE_ADMIN_LOGIN}
+        VITE_ADMIN_PASSWORD: ${VITE_ADMIN_PASSWORD}
     container_name: frontend
     depends_on:
       - backend
@@ -59,8 +59,8 @@ services:
     image: grafana/grafana:latest
     container_name: grafana
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
     ports:
